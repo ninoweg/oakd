@@ -28,8 +28,10 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   oakd_msgs
   visualization_msgs
+  image_geometry
 )
 find_package(depthai CONFIG REQUIRED)
+ find_package(Boost REQUIRED COMPONENTS system)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -126,7 +128,7 @@ find_package(depthai CONFIG REQUIRED)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   LIBRARIES ${PROJECT_NAME}
-  CATKIN_DEPENDS depthai_ros_msgs oakd_msgs roscpp sensor_msgs std_msgs camera_info_manager depthai_bridge vision_msgs cv_bridge message_filters geometry_msgs visualization_msgs
+  CATKIN_DEPENDS depthai_ros_msgs oakd_msgs image_geometry roscpp sensor_msgs std_msgs camera_info_manager depthai_bridge vision_msgs cv_bridge message_filters geometry_msgs visualization_msgs
   DEPENDS
   OpenCV
 )
@@ -141,6 +143,7 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
