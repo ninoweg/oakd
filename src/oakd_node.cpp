@@ -262,11 +262,11 @@ int main(int argc, char **argv)
     // THE_1080_P
     int rgbWidth = 1920;
     int rgbHeight = 1080;
-    int rgb_fps = 5;
+    int rgb_fps = 15;
     // THE_400_P
     int stereoWidth = 640;
     int stereoHeight = 400;
-    int stereo_fps = 5;
+    int stereo_fps = 15;
 
     double angularVelCovariance = 0.0;
     double linearAccelCovariance = 0.0;
