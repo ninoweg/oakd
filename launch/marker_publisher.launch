@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<launch>
+    <node type="marker_publisher_node" name="marker_publisher_node" pkg="oakd" output="screen"/>
+</launch>
+
