@@ -3,7 +3,7 @@ This package is used to fully integrate an DepthAI SpatialTracking pipeline into
 
 Pipeline: StereoCamera + IMU + YoloSpatialDetectionNetwork + ObjectTracker
 
-The main node uses Luxonis depthai_bridge wherever possible to pbulish IMU, RGB, DEPTH and SPATIAL DETECTION as ROS topics. It adds a timer based custom ROS msg and publisher for Tracklets. 
+The main node uses Luxonis depthai_bridge wherever possible to publish IMU, RGB, DEPTH and SPATIAL DETECTION as ROS topics. It adds a custom ROS msg and publisher for Tracklets. 
 
 ```
 roslaunch oakd oakd_node.launch
