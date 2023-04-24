@@ -20,17 +20,7 @@
 #include <depthai_bridge/SpatialDetectionConverter.hpp>
 
 #include "depthai/depthai.hpp"
-
-static const std::vector<std::string> labelMap = {
-    "person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
-    "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse",
-    "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag",
-    "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove",
-    "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon",
-    "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza",
-    "donut", "cake", "chair", "sofa", "pottedplant", "bed", "diningtable", "toilet", "tvmonitor",
-    "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink",
-    "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"};
+#include "common.hpp"
 
 dai::Pipeline createPipeline(int stereo_fps,
                              int rgb_fps,
@@ -191,10 +181,10 @@ void timerCallback(const ros::TimerEvent &e, const std::shared_ptr<dai::DataOutp
 
         uint32_t labelIndex = t.label;
         std::string labelStr = std::to_string(labelIndex);
+        
         if (labelIndex < labelMap.size())
-        {
             labelStr = labelMap[labelIndex];
-        }
+        
         cv::putText(frame, labelStr, cv::Point(x1 + 10, y1 + 20), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
         std::stringstream idStr;
         idStr << "ID: " << t.id;
@@ -214,10 +204,10 @@ void timerCallback(const ros::TimerEvent &e, const std::shared_ptr<dai::DataOutp
         cv::rectangle(frame, cv::Rect(cv::Point(x1, y1), cv::Point(x2, y2)), color, cv::FONT_HERSHEY_SIMPLEX);
 
         oakd_msgs::Tracklet t_ros;
-        t_ros.roi.center.x = x1 + roi.width / 2;
-        t_ros.roi.center.x = y1 + roi.height / 2;
-        t_ros.roi.size_x = roi.width; 
-        t_ros.roi.size_y = roi.height;
+        t_ros.roi.center.x = (x1 + x2) / 2.0;
+        t_ros.roi.center.y = (y1 + y2) / 2.0;
+        t_ros.roi.size_x = abs(x1 - x2);
+        t_ros.roi.size_y = abs(y1 - y2);
         t_ros.id = t.id;
         t_ros.label = t.label;
         t_ros.age = t.age;
@@ -262,11 +252,11 @@ int main(int argc, char **argv)
     // THE_1080_P
     int rgbWidth = 1920;
     int rgbHeight = 1080;
-    int rgb_fps = 15;
+    int rgb_fps = 30;
     // THE_400_P
     int stereoWidth = 640;
     int stereoHeight = 400;
-    int stereo_fps = 15;
+    int stereo_fps = 30;
 
     double angularVelCovariance = 0.0;
     double linearAccelCovariance = 0.0;
@@ -297,6 +287,8 @@ int main(int argc, char **argv)
     auto trackletQueue = device->getOutputQueue("tracklets", 30, false);
 
     auto calibrationHandler = device->readCalibration();
+
+    // device->setIrLaserDotProjectorBrightness(200.0);
 
     // IMU
     dai::ros::ImuSyncMethod imuMode = static_cast<dai::ros::ImuSyncMethod>(imuModeParam);
