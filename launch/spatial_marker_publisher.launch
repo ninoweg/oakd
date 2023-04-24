@@ -1,8 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-    <node  type="markerPublisher.py" name="markerPublisher" pkg="depthai_custom">
-        <remap from="spatialDetections" to="/depthai_oakd/color/spatial_detections"/>
-        <remap from="spatialDetectionMarkers" to="/depthai_oakd/color/spatialDetectionMarkers"/>
-    </node>
-</launch>
-
