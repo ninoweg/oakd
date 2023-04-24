@@ -1,5 +1,5 @@
 # oakd
-This package is used to fully integrate an DepthAI SpatialTracking pipeline into ROS (including IMU).
+This package is used to fully integrate an DepthAI SpatialTracking pipeline into ROS.
 
 Pipeline: StereoCamera + IMU + YoloSpatialDetectionNetwork + ObjectTracker
 
