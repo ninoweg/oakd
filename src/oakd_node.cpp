@@ -138,7 +138,7 @@ dai::Pipeline createPipeline(int stereo_fps,
     spatialDetectionNetwork->out.link(objectTracker->inputDetections);
 
     // Link ObjectTracker
-    // objectTracker->setDetectionLabelsToTrack({1});
+    objectTracker->setDetectionLabelsToTrack({47});
     objectTracker->passthroughDetectionFrame.link(xoutPreview->input);
     objectTracker->passthroughDetections.link(xoutNN->input);
     objectTracker->out.link(xoutTracker->input);
