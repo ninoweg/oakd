@@ -41,6 +41,7 @@ namespace oakd
             return pt_3d;
         }
 
+
         inline std::tuple<geometry_msgs::Point, double, double, visualization_msgs::Marker> getBoundingBox(const std::string label,
                                                                                                            const int id,
                                                                                                            const double &distance,
@@ -48,21 +49,21 @@ namespace oakd
                                                                                                            const int height_px,
                                                                                                            const cv::Point &center_px)
         {
-            visualization_msgs::Marker line_strip;
-            line_strip.header.frame_id = frame_id_;
-            line_strip.header.stamp = ros::Time::now();
-            line_strip.ns = label;
-            line_strip.id = id;
-            line_strip.action = visualization_msgs::Marker::ADD;
-            line_strip.pose.orientation.w = 1.0;
-            line_strip.type = visualization_msgs::Marker::LINE_STRIP;
-            line_strip.scale.x = 0.01;
-            line_strip.color.r = 1.0;
-            line_strip.color.a = 1.0;
-            line_strip.lifetime = ros::Duration(0.25);
+            visualization_msgs::Marker cube;
+            cube.header.frame_id = frame_id_;
+            cube.header.stamp = ros::Time::now();
+            cube.ns = label;
+            cube.id = id;
+            cube.action = visualization_msgs::Marker::ADD;
+            cube.pose.orientation.w = 1.0;
+            cube.type = visualization_msgs::Marker::CUBE;
+            cube.color.r = 1.0;
+            cube.color.a = 0.5;
+            cube.lifetime = ros::Duration(0.25);
             std::vector<geometry_msgs::Point> points_3d;
+            
             float a{1.0}, b{1.0};
-            for (size_t i = 1; i <= 5; ++i)
+            for (size_t i = 1; i <= 4; ++i)
             {
                 auto u = center_px.x + a * width_px / 2.0;
                 auto v = center_px.y + b * height_px / 2.0;
@@ -74,16 +75,19 @@ namespace oakd
                     b = -1.0;
                 else if (i == 3)
                     a = 1.0;
-                else if (i == 4)
-                    b = 1.0;
             }
-            line_strip.points = points_3d;
 
             auto width = points_3d.at(0).x - points_3d.at(1).x;
             auto height = points_3d.at(1).y - points_3d.at(2).y;
-            auto center = get3DPoint(center_px.x, center_px.y, distance);
+            auto depth = width < height ? width : height;
+            cube.scale.x = width;
+            cube.scale.y = height;
+            cube.scale.z = depth;
 
-            return {center, width, height, line_strip};
+            auto center = get3DPoint(center_px.x, center_px.y, distance);
+            cube.pose.position = center;
+        
+            return {center, width, height, cube};
         }
 
         inline visualization_msgs::Marker getText(const std::string &label,
@@ -105,12 +109,15 @@ namespace oakd
             text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
             text.scale.z = 0.2;
             text.color.r = 1.0;
+            text.color.g = 1.0;
+            text.color.b = 1.0;
             text.color.a = 1.0;
             text.lifetime = ros::Duration(0.25);
             text.pose.position = center;
             std::stringstream sstream;
-            sstream << "label: " << label << "\nid: " << id << "\nstatus: " << status << "\nconfidence: " << confidence <<
-                        "\nheight: " << height << "\nwidth: " << width << "\ndistance: " << distance;
+            // sstream << "label: " << label << "\nid: " << id << "\nstatus: " << status << "\nconfidence: " << confidence << "\nheight: " << height << "\nwidth: " << width << "\ndistance: " << distance;
+            // sstream << "label: " << label << "\nheight: " << height << "\nwidth: " << width << "\ndistance: " << distance;
+            sstream << label << " " << id;
             text.text = sstream.str();
             return text;
         }
@@ -129,7 +136,7 @@ namespace oakd
             visualization_msgs::MarkerArray markers;
             for (auto &track : tracklet_msg->tracklets)
             {
-                auto dist = track.spatialCoordinates.z / 1000.0; 
+                auto dist = track.spatialCoordinates.z / 1000.0;
                 // bbox
                 auto width_px = track.roi.size_x;
                 auto height_px = track.roi.size_y;
