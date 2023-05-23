@@ -70,7 +70,7 @@ manipPreview.setMaxOutputFrameSize(10000000)
 # https://www.bosch-sensortec.com/products/motion-sensors/imus/bmi270/
 # https://github.com/xsens/xsens_mti_ros_node/issues/70
 imu_freq = 100
-acc_noise = 160
+acc_noise = 160 * 10e-6
 gyr_noise = 0.008 * (np.pi / 180) # rps
 acc_var = (acc_noise * np.sqrt(imu_freq)) ** 2
 gyr_var = (gyr_noise * np.sqrt(imu_freq)) ** 2
