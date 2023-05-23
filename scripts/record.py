@@ -8,7 +8,6 @@ from sensor_msgs.msg import Imu
 # Create pipeline
 pipeline = dai.Pipeline()
 
-
 # Define sources and outputs
 camRgb = pipeline.create(dai.node.ColorCamera)
 monoLeft = pipeline.create(dai.node.MonoCamera)
@@ -92,7 +91,7 @@ with dai.Device(pipeline) as dev:
     outPreview = dev.getOutputQueue(name='encPreviewOut', maxSize=30, blocking=False)
     outImu     = dev.getOutputQueue(name='imu'          , maxSize=30, blocking=False)
 
-    with rosbag.Bag('test.bag', 'w') as bag, open('records/right.h265', 'wb') as fileRightH265, open('records/left.h265', 'wb') as fileLeftH265, open('records/rgb.h265', 'wb') as fileColorH265, open('records/preview.h265', 'wb') as filePreviewH265:
+    with rosbag.Bag('records/imu.bag', 'w') as bag, open('records/right.h265', 'wb') as fileRightH265, open('records/left.h265', 'wb') as fileLeftH265, open('records/rgb.h265', 'wb') as fileColorH265, open('records/preview.h265', 'wb') as filePreviewH265:
         print("Press Ctrl+C to stop encoding...")
         while True:
             try:
@@ -114,24 +113,35 @@ with dai.Device(pipeline) as dev:
 
                 if outImu.has():
                     try:
-                        packet = outImu.get().getRaw().packets.pop()
-
-                        data = dai.RawIMUData()
-                        # data.packets[0].acceleroMeter.timestamp.
-                        
-                            
-                        #     print(buffer.data)
+                        data = outImu.get().getRaw().packets.pop()
 
                         msg = Imu()
-                        msg.linear_acceleration.x = packet.
-                        msg.linear_acceleration.y =
-                        msg.linear_acceleration.z =
-                        #     bag.write('imu', msg)
+                        msg.header.seq = data.acceleroMeter.sequence
+                        msg.header.stamp.secs = data.acceleroMeter.timestamp.sec
+                        msg.header.stamp.nsecs = data.acceleroMeter.timestamp.nsec
+                        msg.header.frame_id = "oak_imu_frame"
 
-                        # except Exception:
-                        #     print(Exception)
+                        msg.linear_acceleration.x = data.acceleroMeter.x
+                        msg.linear_acceleration.y = data.acceleroMeter.y
+                        msg.linear_acceleration.z = data.acceleroMeter.z
+                        msg.linear_acceleration_covariance = [0.05, 0.0, 0.0, 
+                                                              0.0, 0.05, 0.0, 
+                                                              0.0, 0.0, 0.05]
+                        
+                        msg.angular_velocity.x = data.gyroscope.x
+                        msg.angular_velocity.y = data.gyroscope.y
+                        msg.angular_velocity.z = data.gyroscope.z
+                        msg.angular_velocity_covariance = [0.05, 0.0, 0.0, 
+                                                           0.0, 0.05, 0.0, 
+                                                           0.0, 0.0, 0.05]
+                        
+                        bag.write('imu', msg)
+
+                    except Exception as e:
+                        print(e)
 
                     except IndexError as e:
+                        print(e)
             
 
             except KeyboardInterrupt:
