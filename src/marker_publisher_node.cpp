@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include <marker_publisher.hpp>
+#include "marker_publisher.hpp"
 
 int main(int argc, char** argv) {
     ros::init(argc, argv, "marker_publisher_node");

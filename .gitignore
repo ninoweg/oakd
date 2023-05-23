@@ -1,1 +1,4 @@
 /.vscode
+docker/dataset/
+docker/results/
+scripts/records/

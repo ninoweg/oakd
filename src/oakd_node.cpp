@@ -9,8 +9,6 @@
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui/highgui.hpp>
 #include <visualization_msgs/MarkerArray.h>
-#include <oakd_msgs/TrackletArray.h>
-#include <oakd_msgs/Tracklet.h>
 
 // Inludes common necessary includes for development using depthai library
 #include <depthai_bridge/BridgePublisher.hpp>
@@ -18,6 +16,7 @@
 #include <depthai_bridge/ImageConverter.hpp>
 #include <depthai_bridge/ImuConverter.hpp>
 #include <depthai_bridge/SpatialDetectionConverter.hpp>
+#include <depthai_bridge/TrackletConverter.hpp>
 
 #include "depthai/depthai.hpp"
 #include "common.hpp"
@@ -41,14 +40,16 @@ dai::Pipeline createPipeline(int stereo_fps,
     auto monoLeft = pipeline.create<dai::node::MonoCamera>();
     auto monoRight = pipeline.create<dai::node::MonoCamera>();
     auto stereo = pipeline.create<dai::node::StereoDepth>();
-    auto xoutDepth = pipeline.create<dai::node::XLinkOut>();
     auto camRgb = pipeline.create<dai::node::ColorCamera>();
-    auto xoutRgb = pipeline.create<dai::node::XLinkOut>();
     auto imu = pipeline.create<dai::node::IMU>();
+    auto spatialDetectionNetwork = pipeline.create<dai::node::YoloSpatialDetectionNetwork>();
+    auto objectTracker = pipeline.create<dai::node::ObjectTracker>();
+
+    auto xoutDepth = pipeline.create<dai::node::XLinkOut>();
+    auto xoutRgb = pipeline.create<dai::node::XLinkOut>();
     auto xoutImu = pipeline.create<dai::node::XLinkOut>();
     auto xoutNN = pipeline.create<dai::node::XLinkOut>();
     auto xoutPreview = pipeline.create<dai::node::XLinkOut>();
-    auto objectTracker = pipeline.create<dai::node::ObjectTracker>();
     auto xoutTracker = pipeline.create<dai::node::XLinkOut>();
 
     controlIn->setStreamName("control");
@@ -79,7 +80,7 @@ dai::Pipeline createPipeline(int stereo_fps,
 
     // ObjectTracker
     objectTracker->setTrackerType(dai::TrackerType::ZERO_TERM_COLOR_HISTOGRAM);
-    objectTracker->setTrackerIdAssignmentPolicy(dai::TrackerIdAssignmentPolicy::SMALLEST_ID);
+    objectTracker->setTrackerIdAssignmentPolicy(dai::TrackerIdAssignmentPolicy::UNIQUE_ID);
 
     // IMU
     imu->enableIMUSensor(dai::IMUSensor::ACCELEROMETER_RAW, 500);
@@ -93,7 +94,6 @@ dai::Pipeline createPipeline(int stereo_fps,
 
     dai::node::ColorCamera::Properties::SensorResolution rgbResolution = dai::node::ColorCamera::Properties::SensorResolution::THE_1080_P;
     camRgb->setBoardSocket(dai::CameraBoardSocket::RGB);
-    camRgb->setFps(stereo_fps);
     camRgb->setResolution(rgbResolution);
     camRgb->setIspScale(rgbScaleNumerator, rgbScaleDinominator);
     camRgb->setColorOrder(dai::ColorCameraProperties::ColorOrder::BGR);
@@ -102,7 +102,6 @@ dai::Pipeline createPipeline(int stereo_fps,
     camRgb->setFps(rgb_fps);
 
     // SpatialDetectionNetwork
-    auto spatialDetectionNetwork = pipeline.create<dai::node::YoloSpatialDetectionNetwork>();
     spatialDetectionNetwork->setBlobPath(nnPath);
     spatialDetectionNetwork->setConfidenceThreshold(0.5f);
     spatialDetectionNetwork->input.setBlocking(false);
@@ -125,7 +124,7 @@ dai::Pipeline createPipeline(int stereo_fps,
     monoRight->out.link(stereo->right);
 
     // Link ColorCamera
-    camRgb->isp.link(xoutRgb->input);
+    // camRgb->isp.link(xoutRgb->input);
     camRgb->preview.link(spatialDetectionNetwork->input);
 
     // Link StereoCamera
@@ -149,88 +148,9 @@ dai::Pipeline createPipeline(int stereo_fps,
     return pipeline;
 }
 
-// void addDetectionsToFrame(cv::Mat &frame, dai::Tracklets &track)
-// {
-//     // https://docs.luxonis.com/projects/api/en/latest/samples/ObjectTracker/spatial_object_tracker/#spatial-object-tracker-on-rgb
-//     auto color = cv::Scalar(255, 255, 255);
-//     auto trackletsData = track->tracklets;
-//     for (auto &t : trackletsData)
-//     {
-
-//     }
-// }
-
-void timerCallback(const ros::TimerEvent &e, const std::shared_ptr<dai::DataOutputQueue> tracklets, const std::shared_ptr<dai::DataOutputQueue> preview, const ros::Publisher &pub_tracklets, const image_transport::Publisher &pub_detection_img)
+void timerCallback(const cv::VideoCapture& cap, cv::Mat frame)
 {
 
-    static size_t seq{0};
-    auto imgFrame = preview->get<dai::ImgFrame>();
-    cv::Mat frame = imgFrame->getCvFrame();
-    auto track = tracklets->get<dai::Tracklets>();
-    auto trackletsData = track->tracklets;
-    oakd_msgs::TrackletArray tracklets_ros;
-    auto color = cv::Scalar(255, 255, 255);
-
-    for (auto &t : trackletsData)
-    {
-        auto roi = t.roi.denormalize(frame.cols, frame.rows);
-        int x1 = roi.topLeft().x;
-        int y1 = roi.topLeft().y;
-        int x2 = roi.bottomRight().x;
-        int y2 = roi.bottomRight().y;
-
-        uint32_t labelIndex = t.label;
-        std::string labelStr = std::to_string(labelIndex);
-        
-        if (labelIndex < labelMap.size())
-            labelStr = labelMap[labelIndex];
-        
-        cv::putText(frame, labelStr, cv::Point(x1 + 10, y1 + 20), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-        std::stringstream idStr;
-        idStr << "ID: " << t.id;
-        cv::putText(frame, idStr.str(), cv::Point(x1 + 10, y1 + 35), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-        std::stringstream statusStr;
-        statusStr << "Status: " << t.status;
-        cv::putText(frame, statusStr.str(), cv::Point(x1 + 10, y1 + 50), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-        std::stringstream depthX;
-        depthX << "X: " << (int)t.spatialCoordinates.x << " mm";
-        cv::putText(frame, depthX.str(), cv::Point(x1 + 10, y1 + 65), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-        std::stringstream depthY;
-        depthY << "Y: " << (int)t.spatialCoordinates.y << " mm";
-        cv::putText(frame, depthY.str(), cv::Point(x1 + 10, y1 + 80), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-        std::stringstream depthZ;
-        depthZ << "Z: " << (int)t.spatialCoordinates.z << " mm";
-        cv::putText(frame, depthZ.str(), cv::Point(x1 + 10, y1 + 95), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-        cv::rectangle(frame, cv::Rect(cv::Point(x1, y1), cv::Point(x2, y2)), color, cv::FONT_HERSHEY_SIMPLEX);
-
-        oakd_msgs::Tracklet t_ros;
-        t_ros.roi.center.x = (x1 + x2) / 2.0;
-        t_ros.roi.center.y = (y1 + y2) / 2.0;
-        t_ros.roi.size_x = abs(x1 - x2);
-        t_ros.roi.size_y = abs(y1 - y2);
-        t_ros.id = t.id;
-        t_ros.label = t.label;
-        t_ros.age = t.age;
-        t_ros.status = static_cast<std::underlying_type<dai::Tracklet::TrackingStatus>::type>(t.status);
-        t_ros.srcImgDetection.label = t.srcImgDetection.label;
-        t_ros.srcImgDetection.confidence = t.srcImgDetection.confidence;
-        t_ros.srcImgDetection.xmin = t.srcImgDetection.xmin;
-        t_ros.srcImgDetection.ymin = t.srcImgDetection.ymin;
-        t_ros.srcImgDetection.xmax = t.srcImgDetection.xmax;
-        t_ros.srcImgDetection.ymax = t.srcImgDetection.ymax;
-        t_ros.spatialCoordinates.x = t.spatialCoordinates.x;
-        t_ros.spatialCoordinates.y = t.spatialCoordinates.y;
-        t_ros.spatialCoordinates.z = t.spatialCoordinates.z;
-        tracklets_ros.tracklets.push_back(t_ros);
-    }
-
-    tracklets_ros.header.seq = ++seq;
-    tracklets_ros.header.stamp = ros::Time::now();
-    tracklets_ros.header.frame_id = "oak_rgb_camera_optical_frame";
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
-
-    pub_tracklets.publish(tracklets_ros);
-    pub_detection_img.publish(msg);
 }
 
 int main(int argc, char **argv)
@@ -288,7 +208,8 @@ int main(int argc, char **argv)
 
     auto calibrationHandler = device->readCalibration();
 
-    // device->setIrLaserDotProjectorBrightness(200.0);
+    device->setIrLaserDotProjectorBrightness(1200); // in mA, 0..1200
+    device->setIrFloodLightBrightness(0); // in mA, 0..1500
 
     // IMU
     dai::ros::ImuSyncMethod imuMode = static_cast<dai::ros::ImuSyncMethod>(imuModeParam);
@@ -338,11 +259,7 @@ int main(int argc, char **argv)
         stereoQueue,
         pnh,
         std::string("stereo/depth"),
-        std::bind(&dai::rosBridge::ImageConverter::toRosMsg,
-                  &depthconverter, // since the converter has the same frame name
-                                   // and image type is also same we can reuse it
-                  std::placeholders::_1,
-                  std::placeholders::_2),
+        std::bind(&dai::rosBridge::ImageConverter::toRosMsg, &depthconverter, std::placeholders::_1, std::placeholders::_2),
         30,
         depthCameraInfo,
         "stereo");
@@ -358,8 +275,20 @@ int main(int argc, char **argv)
         30);
     detectionPublish.addPublisherCallback();
 
+    // Tracklets
+    dai::rosBridge::TrackletConverter trackConverter(tfPrefix + "_rgb_camera_optical_frame", 416, 416, 416, 416, false, false);
+    dai::rosBridge::BridgePublisher<depthai_ros_msgs::TrackletArray, dai::Tracklets> trackletPublish(
+        trackletQueue,
+        pnh,
+        std::string("color/tracklets"),
+        std::bind(&dai::rosBridge::TrackletConverter::toRosMsg, &trackConverter, std::placeholders::_1, std::placeholders::_2),
+        30);
+    trackletPublish.addPublisherCallback();
+
     // ObjectTracker
-    ros::Timer timer = pnh.createTimer(ros::Duration(1.0 / rgb_fps), std::bind(&timerCallback, std::placeholders::_1, trackletQueue, previewQueue, pub_tracklets, pub_detection_img));
+    cv::Mat frame;
+    cv::VideoCapture cap(videoPath);
+    ros::Timer timer = pnh.createTimer(ros::Duration(1.0 / 100), std::bind(&timerCallback, std::placeholders::_1, cap, frame));
 
     ros::spin();
 

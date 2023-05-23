@@ -67,7 +67,6 @@
   <depend>stereo_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>vision_msgs</depend>
-  <depend>oakd_msgs</depend>
   <depend>visualization_msgs</depend>
   <depend>image_geometry</depend>
 

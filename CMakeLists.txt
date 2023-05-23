@@ -26,7 +26,6 @@ find_package(catkin REQUIRED COMPONENTS
   depthai_bridge
   message_filters
   geometry_msgs
-  oakd_msgs
   visualization_msgs
   image_geometry
 )
@@ -128,7 +127,7 @@ find_package(depthai CONFIG REQUIRED)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   LIBRARIES ${PROJECT_NAME}
-  CATKIN_DEPENDS depthai_ros_msgs oakd_msgs image_geometry roscpp sensor_msgs std_msgs camera_info_manager depthai_bridge vision_msgs cv_bridge message_filters geometry_msgs visualization_msgs
+  CATKIN_DEPENDS depthai_ros_msgs image_geometry roscpp sensor_msgs std_msgs camera_info_manager depthai_bridge vision_msgs cv_bridge message_filters geometry_msgs visualization_msgs
   DEPENDS
   OpenCV
 )
@@ -169,8 +168,9 @@ macro(oakd_add_node node_name node_src)
     
 endmacro() 
 
-oakd_add_node(oakd_node src/oakd_node.cpp)
 oakd_add_node(marker_publisher_node src/marker_publisher_node.cpp)
+oakd_add_node(bbox_publisher_node src/bbox_publisher_node.cpp)
+oakd_add_node(replay_publisher_node src/replay_publisher_node.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries

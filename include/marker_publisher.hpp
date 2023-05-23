@@ -1,7 +1,7 @@
 #pragma once
 #include <ros/ros.h>
-#include <oakd_msgs/TrackletArray.h>
-#include <oakd_msgs/Tracklet.h>
+#include <depthai_ros_msgs/TrackletArray.h>
+#include <depthai_ros_msgs/Tracklet.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <geometry_msgs/Point.h>
 #include <message_filters/subscriber.h>
@@ -23,9 +23,9 @@ namespace oakd
     private:
         ros::NodeHandle nh_;
         std::string node_name_;
-        message_filters::Subscriber<oakd_msgs::TrackletArray> sub_tracklets_;
+        message_filters::Subscriber<depthai_ros_msgs::TrackletArray> sub_tracklets_;
         message_filters::Subscriber<sensor_msgs::CameraInfo> sub_camera_info_;
-        typedef message_filters::sync_policies::ApproximateTime<oakd_msgs::TrackletArray, sensor_msgs::CameraInfo> MySyncPolicy;
+        typedef message_filters::sync_policies::ApproximateTime<depthai_ros_msgs::TrackletArray, sensor_msgs::CameraInfo> MySyncPolicy;
         typedef message_filters::Synchronizer<MySyncPolicy> Sync;
         boost::shared_ptr<Sync> sync_;
         ros::Publisher pub_marker_;
@@ -115,14 +115,14 @@ namespace oakd
             text.lifetime = ros::Duration(0.25);
             text.pose.position = center;
             std::stringstream sstream;
-            // sstream << "label: " << label << "\nid: " << id << "\nstatus: " << status << "\nconfidence: " << confidence << "\nheight: " << height << "\nwidth: " << width << "\ndistance: " << distance;
+            sstream << "label: " << label << "\nid: " << id << "\nstatus: " << status << "\nconfidence: " << confidence << "\nheight: " << height << "\nwidth: " << width << "\ndistance: " << distance;
             // sstream << "label: " << label << "\nheight: " << height << "\nwidth: " << width << "\ndistance: " << distance;
             sstream << label << " " << id;
             text.text = sstream.str();
             return text;
         }
 
-        void cbTrackletAndCameraInfo(const oakd_msgs::TrackletArrayConstPtr &tracklet_msg,
+        void cbTrackletAndCameraInfo(const depthai_ros_msgs::TrackletArrayConstPtr &tracklet_msg,
                                      const sensor_msgs::CameraInfoConstPtr &camera_info_msg)
         {
             image_geometry::PinholeCameraModel camera_model;
@@ -136,12 +136,12 @@ namespace oakd
             visualization_msgs::MarkerArray markers;
             for (auto &track : tracklet_msg->tracklets)
             {
-                auto dist = track.spatialCoordinates.z / 1000.0;
+                auto dist = track.spatialCoordinates.z;
                 // bbox
                 auto width_px = track.roi.size_x;
                 auto height_px = track.roi.size_y;
                 // detection confidence
-                auto confidence = track.srcImgDetection.confidence;
+                auto confidence = track.srcImgDetectionHypothesis.score;
                 // center in pixel
                 cv::Point center_px;
                 center_px.x = track.roi.center.x;

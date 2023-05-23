@@ -19,7 +19,7 @@
     <arg name="convertToMeters"       default="false" />
 
     <!-- publish robot_model and tf -->
-    <include file="$(find depthai_bridge)/launch/urdf.launch">
+    <include file="$(find depthai_descriptions)/launch/urdf.launch">
         <arg name="base_frame"      value="$(arg  base_frame)"  />
         <arg name="parent_frame"    value="$(arg  parent_frame)"/>
         <arg name="camera_model"    value="$(arg  camera_model)"/>

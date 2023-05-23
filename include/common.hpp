@@ -3,9 +3,14 @@
 
 namespace oakd
 {
-    const std::string TRACKLET_TOPIC = "/oakd/camera/tracker/tracklets";
-    const std::string CAMERA_INFO_TOPIC = "/oakd/color/preview/camera_info";
+    const std::string TRACKLET_TOPIC = "/tracker_publisher/tracker/tracklets";
+    const std::string CAMERA_INFO_TOPIC = "/tracker_publisher/color/camera_info";
+    const std::string IMAGE_TRACKER_FRAME_TOPIC = "/tracker_publisher/color/image";
+    const std::string IMAGE_DETECTION_FRAME_TOPIC = "/tracker_publisher/color/preview/image";
+    
     const std::string MARKER_TOPIC = "/oakd/marker_publisher/markers";
+    const std::string BBOX_TRACKER_FRAME_TOPIC = "/oakd/bbox_publisher/tracker_frame/image";
+    const std::string BBOX_DETECTION_FRAME_TOPIC = "/oakd/bbox_publisher/detection_frame/image";
 }
 
 static const std::vector<std::string> labelMap = {
