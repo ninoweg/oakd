@@ -4,6 +4,15 @@
 import depthai as dai
 import rosbag
 from sensor_msgs.msg import Imu
+from nav_msgs.msg import Odometry
+import rospy
+
+def callback(data):
+    odom_buffer.append(data)
+
+rospy.init_node('recorder')
+sub = rospy.Subscriber("/odom", Odometry, callback)
+odom_buffer = []
 
 # Create pipeline
 pipeline = dai.Pipeline()
@@ -32,7 +41,7 @@ encLeftOut.setStreamName('encLeftOut')
 encRightOut.setStreamName('encRightOut')
 encRgbOut.setStreamName('encRgbOut')
 encPreviewOut.setStreamName('encPreviewOut')
-imuOut.setStreamName('imu')
+imuOut.setStreamName('imuOut')
 
 # Properties
 camRgb.setBoardSocket(dai.CameraBoardSocket.RGB)
@@ -89,11 +98,11 @@ with dai.Device(pipeline) as dev:
     outRight   = dev.getOutputQueue(name='encRightOut'  , maxSize=30, blocking=False)
     outRgb     = dev.getOutputQueue(name='encRgbOut'    , maxSize=30, blocking=False)
     outPreview = dev.getOutputQueue(name='encPreviewOut', maxSize=30, blocking=False)
-    outImu     = dev.getOutputQueue(name='imu'          , maxSize=30, blocking=False)
+    outImu     = dev.getOutputQueue(name='imuOut'       , maxSize=30, blocking=False)
 
-    with rosbag.Bag('records/imu.bag', 'w') as bag, open('records/right.h265', 'wb') as fileRightH265, open('records/left.h265', 'wb') as fileLeftH265, open('records/rgb.h265', 'wb') as fileColorH265, open('records/preview.h265', 'wb') as filePreviewH265:
+    with rosbag.Bag('records/imu_odom.bag', 'w') as bag, open('records/right.h265', 'wb') as fileRightH265, open('records/left.h265', 'wb') as fileLeftH265, open('records/rgb.h265', 'wb') as fileColorH265, open('records/preview.h265', 'wb') as filePreviewH265:
         print("Press Ctrl+C to stop encoding...")
-        while True:
+        while not rospy.is_shutdown():
             try:
                 # Empty each queue
                 while outLeft.has():
@@ -112,42 +121,39 @@ with dai.Device(pipeline) as dev:
                     outPreview.get().getData().tofile(filePreviewH265)
 
                 if outImu.has():
-                    try:
-                        data = outImu.get().getRaw().packets.pop()
+                    data = outImu.get().getRaw().packets.pop()
 
-                        msg = Imu()
-                        msg.header.seq = data.acceleroMeter.sequence
-                        msg.header.stamp.secs = data.acceleroMeter.timestamp.sec
-                        msg.header.stamp.nsecs = data.acceleroMeter.timestamp.nsec
-                        msg.header.frame_id = "oak_imu_frame"
+                    msg = Imu()
+                    msg.header.seq = data.acceleroMeter.sequence
+                    msg.header.stamp.secs = data.acceleroMeter.timestamp.sec
+                    msg.header.stamp.nsecs = data.acceleroMeter.timestamp.nsec
+                    msg.header.frame_id = "oak_imu_frame"
 
-                        msg.linear_acceleration.x = data.acceleroMeter.x
-                        msg.linear_acceleration.y = data.acceleroMeter.y
-                        msg.linear_acceleration.z = data.acceleroMeter.z
-                        msg.linear_acceleration_covariance = [0.05, 0.0, 0.0, 
-                                                              0.0, 0.05, 0.0, 
-                                                              0.0, 0.0, 0.05]
-                        
-                        msg.angular_velocity.x = data.gyroscope.x
-                        msg.angular_velocity.y = data.gyroscope.y
-                        msg.angular_velocity.z = data.gyroscope.z
-                        msg.angular_velocity_covariance = [0.05, 0.0, 0.0, 
-                                                           0.0, 0.05, 0.0, 
-                                                           0.0, 0.0, 0.05]
-                        
-                        bag.write('imu', msg)
+                    msg.linear_acceleration.x = data.acceleroMeter.x
+                    msg.linear_acceleration.y = data.acceleroMeter.y
+                    msg.linear_acceleration.z = data.acceleroMeter.z
+                    msg.linear_acceleration_covariance = [0.05, 0.0, 0.0, 
+                                                            0.0, 0.05, 0.0, 
+                                                            0.0, 0.0, 0.05]
+                    
+                    msg.angular_velocity.x = data.gyroscope.x
+                    msg.angular_velocity.y = data.gyroscope.y
+                    msg.angular_velocity.z = data.gyroscope.z
+                    msg.angular_velocity_covariance = [0.05, 0.0, 0.0, 
+                                                        0.0, 0.05, 0.0, 
+                                                        0.0, 0.0, 0.05]
+                    
+                    bag.write('imu', msg)
 
-                    except Exception as e:
-                        print(e)
-
-                    except IndexError as e:
-                        print(e)
-            
+                if odom_buffer:
+                    bag.write('odom', odom_buffer.pop())
+                    odom_buffer.clear()
 
             except KeyboardInterrupt:
                 # Keyboard interrupt (Ctrl + C) detected
+                sub.unregister()
                 bag.close()
                 break
 
-    print("To view the encoded data, convert the stream file (.h264/.h265) into a video file (.mp4), using command below:")
+    print("\nTo view the encoded data, convert the stream file (.h264/.h265) into a video file (.mp4), using command below:")
     print("./convert.bash")
