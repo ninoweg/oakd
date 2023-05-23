@@ -6,6 +6,7 @@ import rosbag
 from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 import rospy
+import numpy as np
 
 def callback(data):
     odom_buffer.append(data)
@@ -66,7 +67,14 @@ manipISP.setMaxOutputFrameSize(10000000)
 manipPreview.initialConfig.setFrameType(dai.ImgFrame.Type.NV12)
 manipPreview.setMaxOutputFrameSize(10000000)
 
-imu.enableIMUSensor([dai.IMUSensor.GYROSCOPE_RAW, dai.IMUSensor.ACCELEROMETER_RAW], 100)
+# https://www.bosch-sensortec.com/products/motion-sensors/imus/bmi270/
+# https://github.com/xsens/xsens_mti_ros_node/issues/70
+imu_freq = 100
+acc_noise = 160
+gyr_noise = 0.008 * (np.pi / 180) # rps
+acc_var = (acc_noise * np.sqrt(imu_freq)) ** 2
+gyr_var = (gyr_noise * np.sqrt(imu_freq)) ** 2
+imu.enableIMUSensor([dai.IMUSensor.GYROSCOPE_RAW, dai.IMUSensor.ACCELEROMETER_RAW], imu_freq)
 imu.setBatchReportThreshold(1)
 imu.setMaxBatchReports(10)
 
@@ -132,16 +140,16 @@ with dai.Device(pipeline) as dev:
                     msg.linear_acceleration.x = data.acceleroMeter.x
                     msg.linear_acceleration.y = data.acceleroMeter.y
                     msg.linear_acceleration.z = data.acceleroMeter.z
-                    msg.linear_acceleration_covariance = [0.05, 0.0, 0.0, 
-                                                            0.0, 0.05, 0.0, 
-                                                            0.0, 0.0, 0.05]
+                    msg.linear_acceleration_covariance = [acc_var, 0.0, 0.0, 
+                                                            0.0, acc_var, 0.0, 
+                                                            0.0, 0.0, acc_var]
                     
                     msg.angular_velocity.x = data.gyroscope.x
                     msg.angular_velocity.y = data.gyroscope.y
                     msg.angular_velocity.z = data.gyroscope.z
-                    msg.angular_velocity_covariance = [0.05, 0.0, 0.0, 
-                                                        0.0, 0.05, 0.0, 
-                                                        0.0, 0.0, 0.05]
+                    msg.angular_velocity_covariance = [gyr_var, 0.0, 0.0, 
+                                                        0.0, gyr_var, 0.0, 
+                                                        0.0, 0.0, gyr_var]
                     
                     bag.write('imu', msg)
 
