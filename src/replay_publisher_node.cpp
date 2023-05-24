@@ -5,6 +5,12 @@
 #include <string>
 #include <chrono>
 
+#include <cstdint>
+#include <iomanip>
+#include <iostream>
+#include <type_traits>
+#include <utility>
+
 #include "camera_info_manager/camera_info_manager.h"
 #include "depthai_bridge/BridgePublisher.hpp"
 #include "depthai_bridge/ImageConverter.hpp"
@@ -89,8 +95,6 @@ int main(int argc, char **argv)
     // Define source and outputs
     auto nn = pipeline.create<dai::node::MobileNetDetectionNetwork>();
     auto stereo = pipeline.create<dai::node::StereoDepth>();
-    auto manipLeft = pipeline.create<dai::node::ImageManip>();
-    auto manipRight = pipeline.create<dai::node::ImageManip>();
 
     auto xinPreview = pipeline.create<dai::node::XLinkIn>();
     auto xinRgb = pipeline.create<dai::node::XLinkIn>();
@@ -104,12 +108,12 @@ int main(int argc, char **argv)
     auto xoutDepth = pipeline.create<dai::node::XLinkOut>();
     auto xoutDetections = pipeline.create<dai::node::XLinkOut>();
     auto xoutTracklets = pipeline.create<dai::node::XLinkOut>();
-    
+
     xinPreview->setStreamName("inPreview");
     xinRgb->setStreamName("inRgb");
     xinLeft->setStreamName("inLeft");
     xinRight->setStreamName("inRight");
-    
+
     xoutPreview->setStreamName("preview");
     xoutRgb->setStreamName("rgb");
     xoutLeft->setStreamName("left");
@@ -117,21 +121,6 @@ int main(int argc, char **argv)
     xoutDepth->setStreamName("depth");
     xoutDetections->setStreamName("detections");
     xoutTracklets->setStreamName("tracklets");
-
-    manipLeft->initialConfig.setFrameType(dai::ImgFrame::Type::GRAY8);
-    manipRight->initialConfig.setFrameType(dai::ImgFrame::Type::GRAY8);
-
-    auto monoLeft = pipeline.create<dai::node::MonoCamera>();
-    auto monoRight = pipeline.create<dai::node::MonoCamera>();
-
-    // // MonoCameras
-    // dai::node::MonoCamera::Properties::SensorResolution monoResolution = dai::node::MonoCamera::Properties::SensorResolution::THE_400_P;
-    // monoLeft->setResolution(monoResolution);
-    // monoLeft->setBoardSocket(dai::CameraBoardSocket::LEFT);
-    // monoLeft->setFps(30);
-    // monoRight->setResolution(monoResolution);
-    // monoRight->setBoardSocket(dai::CameraBoardSocket::RIGHT);
-    // monoRight->setFps(30);
 
     // StereoDepth
     stereo->initialConfig.setConfidenceThreshold(confidence);
@@ -150,13 +139,13 @@ int main(int argc, char **argv)
 
     // Linking
     xinPreview->out.link(nn->input);
-    nn->out.link(xoutDetections->input);    
+    nn->out.link(xoutDetections->input);
     nn->passthrough.link(xoutPreview->input);
     xinRgb->out.link(xoutRgb->input);
-    xinLeft->out.link(xoutLeft->input);
-    xinRight->out.link(xoutRight->input);
     xinLeft->out.link(stereo->left);
     xinRight->out.link(stereo->right);
+    stereo->rectifiedLeft.link(xoutLeft->input);
+    stereo->rectifiedRight.link(xoutRight->input);
     stereo->depth.link(xoutDepth->input);
 
     // Connect to device and start pipeline
@@ -169,13 +158,14 @@ int main(int argc, char **argv)
     auto qinRgb = device.getInputQueue("inRgb");
     auto qinLeft = device.getInputQueue("inLeft");
     auto qinRight = device.getInputQueue("inRight");
+
     // Output queue will be used to get nn data from the video frames.
     auto qoutPreview = device.getOutputQueue("preview", 4, false);
     auto qoutRgb = device.getOutputQueue("rgb", 4, false);
     auto qoutLeft = device.getOutputQueue("left", 4, false);
     auto qoutRight = device.getOutputQueue("right", 4, false);
     auto qoutTracklets = device.getOutputQueue("tracklets", 4, false);
-    auto qoutDepth = device.getOutputQueue("depth", 4, false);
+    auto qoutDepth = device.getOutputQueue("depth", 30, false);
     auto qoutDetections = device.getOutputQueue("detections", 4, false);
 
     // Preview
@@ -230,17 +220,17 @@ int main(int argc, char **argv)
     rgbPublish.addPublisherCallback();
 
     // Depth
-    // dai::rosBridge::ImageConverter depthConverter(tfPrefix + "_rgb_camera_optical_frame", false);
-    // auto depthCameraInfo = depthConverter.calibrationToCameraInfo(calibrationHandler, dai::CameraBoardSocket::RIGHT, monoWidth, monoHeight);
-    // dai::rosBridge::BridgePublisher<sensor_msgs::Image, dai::ImgFrame> depthPublish(
-    //     qoutDepth,
-    //     pnh,
-    //     std::string("stereo/depth"),
-    //     std::bind(&dai::rosBridge::ImageConverter::toRosMsg, &depthConverter, std::placeholders::_1, std::placeholders::_2),
-    //     30,
-    //     depthCameraInfo,
-    //     "stereo");
-    // depthPublish.addPublisherCallback();
+    dai::rosBridge::ImageConverter depthConverter(tfPrefix + "_rgb_camera_optical_frame", false);
+    auto depthCameraInfo = depthConverter.calibrationToCameraInfo(calibrationHandler, dai::CameraBoardSocket::RIGHT, monoWidth, monoHeight);
+    dai::rosBridge::BridgePublisher<sensor_msgs::Image, dai::ImgFrame> depthPublish(
+        qoutDepth,
+        pnh,
+        std::string("stereo/depth"),
+        std::bind(&dai::rosBridge::ImageConverter::toRosMsg, &depthConverter, std::placeholders::_1, std::placeholders::_2),
+        30,
+        depthCameraInfo,
+        "stereo");
+    depthPublish.addPublisherCallback();
 
     // SpatialDetections
     dai::rosBridge::SpatialDetectionConverter detConverter(tfPrefix + "_rgb_camera_optical_frame", previewWidth, previewHeight, false);
@@ -284,6 +274,7 @@ int main(int argc, char **argv)
             img->setWidth(previewWidth);
             img->setHeight(previewHeight);
             img->setType(dai::ImgFrame::Type::BGR888p);
+            img->setInstanceNum(0);
             qinPreview->send(img);
         }
 
@@ -297,49 +288,36 @@ int main(int argc, char **argv)
             img->setWidth(rgbWidth);
             img->setHeight(rgbHeight);
             img->setType(dai::ImgFrame::Type::BGR888p);
+            img->setInstanceNum(0);
             qinRgb->send(img);
         }
 
         left_cap >> left_frame;
-        if (!left_frame.empty())
-        {
-            auto img = std::make_shared<dai::ImgFrame>();
-            left_frame = resizeKeepAspectRatio(left_frame, cv::Size(monoWidth, monoHeight), cv::Scalar(0));
-            toPlanar(left_frame, img->getData());
-            img->setTimestamp(std::chrono::steady_clock::now());
-            img->setWidth(monoWidth);
-            img->setHeight(monoHeight);
-            img->setType(dai::ImgFrame::Type::BGR888p);
-            img->getCvFrame();
-            qinLeft->send(img);
-        }
-
         right_cap >> right_frame;
-        if (!right_frame.empty())
+        if (!left_frame.empty() && !right_frame.empty())
         {
-            auto img = std::make_shared<dai::ImgFrame>();
-            right_frame = resizeKeepAspectRatio(right_frame, cv::Size(monoWidth, monoHeight), cv::Scalar(0));
-            toPlanar(right_frame, img->getData());
-            img->setTimestamp(std::chrono::steady_clock::now());
-            img->setWidth(monoWidth);
-            img->setHeight(monoHeight);
-            img->setType(dai::ImgFrame::Type::BGR888p);
-            qinRight->send(img);
-        }
+            auto timestamp = std::chrono::steady_clock::now();
+            
+            auto left_img = std::make_shared<dai::ImgFrame>();
+            left_frame = resizeKeepAspectRatio(left_frame, cv::Size(1280, 720), cv::Scalar(0));
+            toPlanar(left_frame, left_img->getData());
+            left_img->setTimestamp(timestamp);
+            left_img->setWidth(1280);
+            left_img->setHeight(720);
+            left_img->setType(dai::ImgFrame::Type::YUV420p);
+            left_img->getCvFrame();
+            left_img->setInstanceNum(1);
+            qinLeft->send(left_img);
 
-        if(qoutLeft->has())
-        {
-            ROS_INFO_STREAM("left is fucking present");
-        }
-
-        if(qoutRight->has())
-        {
-            ROS_INFO_STREAM("right is fucking present");
-        }
-
-        if(qoutDepth->has())
-        {
-            ROS_INFO_STREAM("depth is fucking present");
+            auto right_img = std::make_shared<dai::ImgFrame>();
+            right_frame = resizeKeepAspectRatio(right_frame, cv::Size(1280, 720), cv::Scalar(0));
+            toPlanar(right_frame, right_img->getData());
+            right_img->setTimestamp(timestamp);
+            right_img->setWidth(1280);
+            right_img->setHeight(720);
+            right_img->setType(dai::ImgFrame::Type::YUV420p);
+            right_img->setInstanceNum(2);
+            qinRight->send(right_img);
         }
 
         ros::spinOnce();
