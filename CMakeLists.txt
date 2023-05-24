@@ -171,6 +171,7 @@ endmacro()
 oakd_add_node(marker_publisher_node src/marker_publisher_node.cpp)
 oakd_add_node(bbox_publisher_node src/bbox_publisher_node.cpp)
 oakd_add_node(replay_publisher_node src/replay_publisher_node.cpp)
+oakd_add_node(replay_depth_node src/replay_depth_node.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries

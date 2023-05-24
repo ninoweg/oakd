@@ -88,17 +88,6 @@ void toPlanar(cv::Mat& bgr, std::vector<std::uint8_t>& data){
     }
 }
 
-void toPlanarGray(cv::Mat& bgr, std::vector<std::uint8_t>& data){
-
-    data.resize(bgr.cols * bgr.rows * 3);
-    for(int y = 0; y < bgr.rows; y++){
-        for(int x = 0; x < bgr.cols; x++){
-            auto p = bgr.at<uchar>(y,x);
-            data[x + y*bgr.cols + 0 * bgr.rows*bgr.cols] = p;
-        }
-    }
-}
-
 cv::Mat resizeKeepAspectRatio(const cv::Mat &input, const cv::Size &dstSize, const cv::Scalar &bgcolor)
 {
     cv::Mat output;

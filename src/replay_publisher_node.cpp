@@ -230,17 +230,17 @@ int main(int argc, char **argv)
     rgbPublish.addPublisherCallback();
 
     // Depth
-    dai::rosBridge::ImageConverter depthConverter(tfPrefix + "_rgb_camera_optical_frame", false);
-    auto depthCameraInfo = depthConverter.calibrationToCameraInfo(calibrationHandler, dai::CameraBoardSocket::RIGHT, monoWidth, monoHeight);
-    dai::rosBridge::BridgePublisher<sensor_msgs::Image, dai::ImgFrame> depthPublish(
-        qoutDepth,
-        pnh,
-        std::string("stereo/depth"),
-        std::bind(&dai::rosBridge::ImageConverter::toRosMsg, &depthConverter, std::placeholders::_1, std::placeholders::_2),
-        30,
-        depthCameraInfo,
-        "stereo");
-    depthPublish.addPublisherCallback();
+    // dai::rosBridge::ImageConverter depthConverter(tfPrefix + "_rgb_camera_optical_frame", false);
+    // auto depthCameraInfo = depthConverter.calibrationToCameraInfo(calibrationHandler, dai::CameraBoardSocket::RIGHT, monoWidth, monoHeight);
+    // dai::rosBridge::BridgePublisher<sensor_msgs::Image, dai::ImgFrame> depthPublish(
+    //     qoutDepth,
+    //     pnh,
+    //     std::string("stereo/depth"),
+    //     std::bind(&dai::rosBridge::ImageConverter::toRosMsg, &depthConverter, std::placeholders::_1, std::placeholders::_2),
+    //     30,
+    //     depthCameraInfo,
+    //     "stereo");
+    // depthPublish.addPublisherCallback();
 
     // SpatialDetections
     dai::rosBridge::SpatialDetectionConverter detConverter(tfPrefix + "_rgb_camera_optical_frame", previewWidth, previewHeight, false);
@@ -306,11 +306,10 @@ int main(int argc, char **argv)
             auto img = std::make_shared<dai::ImgFrame>();
             left_frame = resizeKeepAspectRatio(left_frame, cv::Size(monoWidth, monoHeight), cv::Scalar(0));
             toPlanar(left_frame, img->getData());
-            // img->setFrame(left_frame);
             img->setTimestamp(std::chrono::steady_clock::now());
             img->setWidth(monoWidth);
             img->setHeight(monoHeight);
-            img->setType(dai::ImgFrame::Type::GRAY8);
+            img->setType(dai::ImgFrame::Type::BGR888p);
             img->getCvFrame();
             qinLeft->send(img);
         }
@@ -321,12 +320,26 @@ int main(int argc, char **argv)
             auto img = std::make_shared<dai::ImgFrame>();
             right_frame = resizeKeepAspectRatio(right_frame, cv::Size(monoWidth, monoHeight), cv::Scalar(0));
             toPlanar(right_frame, img->getData());
-            // img->setFrame(right_frame);
             img->setTimestamp(std::chrono::steady_clock::now());
             img->setWidth(monoWidth);
             img->setHeight(monoHeight);
-            img->setType(dai::ImgFrame::Type::GRAY8);
+            img->setType(dai::ImgFrame::Type::BGR888p);
             qinRight->send(img);
+        }
+
+        if(qoutLeft->has())
+        {
+            ROS_INFO_STREAM("left is fucking present");
+        }
+
+        if(qoutRight->has())
+        {
+            ROS_INFO_STREAM("right is fucking present");
+        }
+
+        if(qoutDepth->has())
+        {
+            ROS_INFO_STREAM("depth is fucking present");
         }
 
         ros::spinOnce();

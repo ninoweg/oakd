@@ -17,4 +17,4 @@ RUN apt-get update && \
 WORKDIR /app/yolov5
 
 # Train the model on the dataset using the nvidia runtime
-CMD ["python3", "train.py", "--img", "640", "--batch", "32", "--epochs", "1", "--data", "/app/dataset/StrawberryRedGreenFlower/Strawberry/data.yaml", "--weights", "yolov5s.pt", "--device", "cpu"]
+CMD ["python3", "train.py", "--img", "640", "--batch", "32", "--epochs", "1", "--data", "/app/dataset/StrawberryRedGreenFlower/Strawberry/data.yaml", "--weights", "yolov5s.pt", "--device", "0"]
