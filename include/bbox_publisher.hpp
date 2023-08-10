@@ -16,16 +16,25 @@
 #include <sensor_msgs/Image.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
+#include <depthai/depthai.hpp>
 
 #include "common.hpp"
 
 namespace oakd
 {
+    struct Marker
+    {
+        int label;
+        int status;
+    };
+
     class BBoxPublisher
     {
     private:
         ros::NodeHandle nh_;
         std::string node_name_;
+        std::vector<int> counter_;
+        std::map<int, std::vector<Marker>> markers_;
         message_filters::Subscriber<depthai_ros_msgs::TrackletArray> sub_tracklets_;
         message_filters::Subscriber<sensor_msgs::Image> sub_detection_image_;
         message_filters::Subscriber<sensor_msgs::Image> sub_tracker_image_;
@@ -55,7 +64,7 @@ namespace oakd
             cv::Mat tracker_frame = cv_tracker_ptr->image;
             auto trackletsData = tracklet_msg->tracklets;
             auto color = cv::Scalar(255, 255, 255);
-
+                        
             for (auto &t : trackletsData)
             {
                 auto tracker_center_x = t.roi.center.x;
@@ -84,31 +93,56 @@ namespace oakd
                 if (labelIndex < labelMap.size())
                     labelStr = labelMap[labelIndex];
 
-                cv::putText(detection_frame, labelStr, cv::Point(detection_x1 + 10, detection_y1 + 20), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-                cv::putText(tracker_frame, labelStr, cv::Point(tracker_x1 + 10, tracker_y1 + 20), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-                std::stringstream idStr;
-                idStr << "ID: " << t.id;
-                cv::putText(detection_frame, idStr.str(), cv::Point(detection_x1 + 10, detection_y1 + 35), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-                cv::putText(tracker_frame, idStr.str(), cv::Point(tracker_x1 + 10, tracker_y1 + 35), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-                std::stringstream statusStr;
-                statusStr << "Status: " << t.status;
-                cv::putText(detection_frame, statusStr.str(), cv::Point(detection_x1 + 10, detection_y1 + 50), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-                cv::putText(tracker_frame, statusStr.str(), cv::Point(tracker_x1 + 10, tracker_y1 + 50), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-                std::stringstream depthX;
-                depthX << "X: " << (float)t.spatialCoordinates.x << " m";
-                cv::putText(detection_frame, depthX.str(), cv::Point(detection_x1 + 10, detection_y1 + 65), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-                cv::putText(tracker_frame, depthX.str(), cv::Point(tracker_x1 + 10, tracker_y1 + 65), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-                std::stringstream depthY;
-                depthY << "Y: " << (float)t.spatialCoordinates.y << " m";
-                cv::putText(detection_frame, depthY.str(), cv::Point(detection_x1 + 10, detection_y1 + 80), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-                cv::putText(tracker_frame, depthY.str(), cv::Point(tracker_x1 + 10, tracker_y1 + 80), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-                std::stringstream depthZ;
-                depthZ << "Z: " << (float)t.spatialCoordinates.z << " m";
-                cv::putText(detection_frame, depthZ.str(), cv::Point(detection_x1 + 10, detection_y1 + 95), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-                cv::putText(tracker_frame, depthZ.str(), cv::Point(tracker_x1 + 10, tracker_y1 + 95), cv::FONT_HERSHEY_TRIPLEX, 0.5, 255);
-                cv::rectangle(detection_frame, cv::Rect(cv::Point(detection_x1, detection_y1), cv::Point(detection_x2, detection_y2)), color, cv::FONT_HERSHEY_SIMPLEX);
-                cv::rectangle(tracker_frame, cv::Rect(cv::Point(tracker_x1, tracker_y1), cv::Point(tracker_x2, tracker_y2)), color, cv::FONT_HERSHEY_SIMPLEX);
+                switch (labelIndex)
+                {
+                case 0:
+                    color = cv::Scalar(255, 255, 255);
+                    break;
+                case 1:
+                    color = cv::Scalar(0, 0, 255);
+                    break;
+                case 2:
+                    color = cv::Scalar(0, 255, 0);
+                    break;
+                }
+
+                // NEW TRACKLED LOST REMOVED
+                
+                if (t.status == (int)dai::Tracklet::TrackingStatus::TRACKED && t.spatialCoordinates.z > 0.01 && t.spatialCoordinates.z < 1.0)
+                {
+                    
+                    markers_[t.id].push_back({t.label, t.status});
+
+                    std::map<int, int> keys;
+                    int i{1};
+                    counter_ = {0,0,0};
+                    for (const auto &[key, values] : markers_)
+                    {
+                        keys[key] = i;
+                        counter_.at(values.at(0).label)++;
+                        i++;
+                    }
+
+                    std::stringstream idStr;
+                    idStr << keys[t.id];
+                    cv::putText(detection_frame, idStr.str(), cv::Point(detection_x1 + 10, detection_y1 + 35), cv::FONT_HERSHEY_TRIPLEX, 0.5, color);
+                    cv::putText(tracker_frame, idStr.str(), cv::Point(tracker_x1 + 10, tracker_y1 + 35), cv::FONT_HERSHEY_TRIPLEX, 0.5, color);
+
+                    cv::rectangle(detection_frame, cv::Rect(cv::Point(detection_x1, detection_y1), cv::Point(detection_x2, detection_y2)), color, cv::FONT_HERSHEY_SIMPLEX);
+                    cv::rectangle(tracker_frame, cv::Rect(cv::Point(tracker_x1, tracker_y1), cv::Point(tracker_x2, tracker_y2)), color, cv::FONT_HERSHEY_SIMPLEX);
+                }
             }
+
+            cv::rectangle(tracker_frame, cv::Rect(cv::Point(0, 0), cv::Point(150, 80)), cv::Scalar(255, 255, 255),  cv::FILLED);
+
+            cv::putText(tracker_frame, "Flower:", cv::Point(15, 25), cv::FONT_HERSHEY_TRIPLEX, 0.5, cv::Scalar(0, 0, 0));
+            cv::putText(tracker_frame, std::to_string(counter_.at(0)), cv::Point(105, 25), cv::FONT_HERSHEY_TRIPLEX, 0.5, cv::Scalar(0, 0, 0));
+
+            cv::putText(tracker_frame, "Ripe:", cv::Point(15, 45), cv::FONT_HERSHEY_TRIPLEX, 0.5, cv::Scalar(0, 0, 0));
+            cv::putText(tracker_frame, std::to_string(counter_.at(1)), cv::Point(105, 45), cv::FONT_HERSHEY_TRIPLEX, 0.5, cv::Scalar(0, 0, 0));
+
+            cv::putText(tracker_frame, "NotRipe:", cv::Point(15, 65), cv::FONT_HERSHEY_TRIPLEX, 0.5, cv::Scalar(0, 0, 0));
+            cv::putText(tracker_frame, std::to_string(counter_.at(2)), cv::Point(105, 65), cv::FONT_HERSHEY_TRIPLEX, 0.5, cv::Scalar(0, 0, 0));
 
             sensor_msgs::ImagePtr detection_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", detection_frame).toImageMsg();
             sensor_msgs::ImagePtr tracker_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", tracker_frame).toImageMsg();
@@ -119,8 +153,9 @@ namespace oakd
     public:
         BBoxPublisher(ros::NodeHandle nh, std::string node_name) : nh_{nh},
                                                                    node_name_{node_name},
-                                                                   it_{nh}
-                                                        
+                                                                   it_{nh},
+                                                                   counter_{0,0,0}
+
         {
             ROS_INFO_STREAM("Init " + node_name_);
             sub_tracklets_.subscribe(nh_, oakd::TRACKLET_TOPIC, 1);
@@ -130,6 +165,7 @@ namespace oakd
             sync_->registerCallback(boost::bind(&BBoxPublisher::cbSyncronizer, this, _1, _2, _3));
             pub_bbox_detection_ = it_.advertise(oakd::BBOX_DETECTION_FRAME_TOPIC, 1);
             pub_bbox_tracker_ = it_.advertise(oakd::BBOX_TRACKER_FRAME_TOPIC, 1);
+            
         }
 
         ~BBoxPublisher() = default;

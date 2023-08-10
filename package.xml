@@ -69,6 +69,9 @@
   <depend>vision_msgs</depend>
   <depend>visualization_msgs</depend>
   <depend>image_geometry</depend>
+  <depend>rosbag</depend>
+  <depend>tf</depend>
+  <depend>tf2_msgs</depend>
 
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>depth_image_proc</exec_depend>

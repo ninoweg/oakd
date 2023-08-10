@@ -25,23 +25,19 @@ monoRight = pipeline.create(dai.node.MonoCamera)
 imu = pipeline.create(dai.node.IMU)
 
 manipISP = pipeline.create(dai.node.ImageManip)
-manipPreview = pipeline.create(dai.node.ImageManip)
 
 encLeft = pipeline.create(dai.node.VideoEncoder)
 encRight = pipeline.create(dai.node.VideoEncoder)
 encRgb = pipeline.create(dai.node.VideoEncoder)
-encPreview = pipeline.create(dai.node.VideoEncoder)
 
 encLeftOut = pipeline.create(dai.node.XLinkOut)
 encRightOut = pipeline.create(dai.node.XLinkOut)
 encRgbOut = pipeline.create(dai.node.XLinkOut)
-encPreviewOut = pipeline.create(dai.node.XLinkOut)
 imuOut = pipeline.create(dai.node.XLinkOut)
 
 encLeftOut.setStreamName('encLeftOut')
 encRightOut.setStreamName('encRightOut')
 encRgbOut.setStreamName('encRgbOut')
-encPreviewOut.setStreamName('encPreviewOut')
 imuOut.setStreamName('imuOut')
 
 # Properties
@@ -50,26 +46,24 @@ camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
 camRgb.setPreviewKeepAspectRatio(True)
 camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
 camRgb.setInterleaved(False)
-camRgb.setPreviewSize(416,416)
-camRgb.setFps(30)
+camRgb.setPreviewSize(352,352)
+camRgb.setFps(15)
 camRgb.setIspScale(2, 3)
 
 monoLeft.setBoardSocket(dai.CameraBoardSocket.LEFT)
 monoLeft.setResolution(dai.MonoCameraProperties.SensorResolution.THE_720_P)
-monoLeft.setFps(30)
+monoLeft.setFps(15)
 
 monoRight.setBoardSocket(dai.CameraBoardSocket.RIGHT)
 monoRight.setResolution(dai.MonoCameraProperties.SensorResolution.THE_720_P)
-monoRight.setFps(30)
+monoRight.setFps(15)
 
 manipISP.initialConfig.setFrameType(dai.ImgFrame.Type.NV12)
 manipISP.setMaxOutputFrameSize(10000000)
-manipPreview.initialConfig.setFrameType(dai.ImgFrame.Type.NV12)
-manipPreview.setMaxOutputFrameSize(10000000)
 
 # https://www.bosch-sensortec.com/products/motion-sensors/imus/bmi270/
 # https://github.com/xsens/xsens_mti_ros_node/issues/70
-imu_freq = 100
+imu_freq = 15
 acc_noise = 160 * 10e-6
 gyr_noise = 0.008 * (np.pi / 180) # rps
 acc_var = (acc_noise * np.sqrt(imu_freq)) ** 2
@@ -82,21 +76,17 @@ imu.setMaxBatchReports(10)
 encLeft.setDefaultProfilePreset(30, dai.VideoEncoderProperties.Profile.H265_MAIN)
 encRight.setDefaultProfilePreset(30, dai.VideoEncoderProperties.Profile.H265_MAIN)
 encRgb.setDefaultProfilePreset(30, dai.VideoEncoderProperties.Profile.H265_MAIN)
-encPreview.setDefaultProfilePreset(30, dai.VideoEncoderProperties.Profile.H265_MAIN)
 
 # Linking
 monoLeft.out.link(encLeft.input)
 monoRight.out.link(encRight.input)
 camRgb.isp.link(manipISP.inputImage)
 manipISP.out.link(encRgb.input)
-camRgb.preview.link(manipPreview.inputImage)
-manipPreview.out.link(encPreview.input)
 imu.out.link(imuOut.input)
 
 encLeft.bitstream.link(encLeftOut.input)
 encRight.bitstream.link(encRightOut.input)
 encRgb.bitstream.link(encRgbOut.input)
-encPreview.bitstream.link(encPreviewOut.input)
 
 # Connect to device and start pipeline
 with dai.Device(pipeline) as dev:
@@ -105,10 +95,9 @@ with dai.Device(pipeline) as dev:
     outLeft    = dev.getOutputQueue(name='encLeftOut'   , maxSize=30, blocking=False)
     outRight   = dev.getOutputQueue(name='encRightOut'  , maxSize=30, blocking=False)
     outRgb     = dev.getOutputQueue(name='encRgbOut'    , maxSize=30, blocking=False)
-    outPreview = dev.getOutputQueue(name='encPreviewOut', maxSize=30, blocking=False)
     outImu     = dev.getOutputQueue(name='imuOut'       , maxSize=30, blocking=False)
 
-    with rosbag.Bag('records/imu_odom.bag', 'w') as bag, open('records/right.h265', 'wb') as fileRightH265, open('records/left.h265', 'wb') as fileLeftH265, open('records/rgb.h265', 'wb') as fileColorH265, open('records/preview.h265', 'wb') as filePreviewH265:
+    with rosbag.Bag('records/imu_odom.bag', 'w') as bag, open('records/right.h265', 'wb') as fileRightH265, open('records/left.h265', 'wb') as fileLeftH265, open('records/rgb.h265', 'wb') as fileColorH265:
         print("Press Ctrl+C to stop encoding...")
         while not rospy.is_shutdown():
             try:
@@ -121,12 +110,6 @@ with dai.Device(pipeline) as dev:
 
                 while outRgb.has():
                     outRgb.get().getData().tofile(fileColorH265)
-
-                while outPreview.has():
-                    outPreview.get().getData().tofile(filePreviewH265)
-
-                while outPreview.has():
-                    outPreview.get().getData().tofile(filePreviewH265)
 
                 if outImu.has():
                     data = outImu.get().getRaw().packets.pop()

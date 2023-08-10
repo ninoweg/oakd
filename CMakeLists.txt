@@ -28,6 +28,9 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   visualization_msgs
   image_geometry
+  rosbag
+  tf
+  tf2_msgs
 )
 find_package(depthai CONFIG REQUIRED)
  find_package(Boost REQUIRED COMPONENTS system)
@@ -127,7 +130,7 @@ find_package(depthai CONFIG REQUIRED)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   LIBRARIES ${PROJECT_NAME}
-  CATKIN_DEPENDS depthai_ros_msgs image_geometry roscpp sensor_msgs std_msgs camera_info_manager depthai_bridge vision_msgs cv_bridge message_filters geometry_msgs visualization_msgs
+  CATKIN_DEPENDS depthai_ros_msgs image_geometry roscpp rosbag sensor_msgs tf tf2_msgs std_msgs camera_info_manager depthai_bridge vision_msgs cv_bridge message_filters geometry_msgs visualization_msgs
   DEPENDS
   OpenCV
 )

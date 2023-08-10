@@ -1,4 +1,7 @@
 /.vscode
 docker/dataset/
 docker/results/
-scripts/records/
+scripts/records*
+scripts/count.py
+scripts/ekf_slam.py
+scripts/plot*
