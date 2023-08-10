@@ -38,7 +38,7 @@ roslaunch rtabmap_launch rtabmap.launch args:="--delete_db_on_start" rgb_topic:=
 rosrun imu_filter_madgwick imu_filter_node    imu/data_raw:=/imu    imu/data:=/replay_publisher/imu/data     _use_mag:=false    _publish_tf:=false
 ```
 
-## useful links
+## LINKS
 * http://tools.luxonis.com/
 * https://github.com/luxonis/depthai-ml-training/tree/master/colab-notebooks
 * https://machinelearningspace.com/2d-object-tracking-using-kalman-filter/
